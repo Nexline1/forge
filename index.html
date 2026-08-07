@@ -1,0 +1,84 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Forge — build a system prompt that actually works | Bahrain AI</title>
+<meta name="description" content="Answer a few questions. Walk away with a production-grade system prompt built for your job, your tools and your model. Free, from the Bahrain AI community.">
+<meta name="theme-color" content="#ffffff">
+
+<meta property="og:title" content="Forge — build a system prompt that actually works">
+<meta property="og:description" content="Answer a few questions. Walk away with a production-grade system prompt built for your job, your tools and your model.">
+<meta property="og:type" content="website">
+<meta property="og:image" content="assets/img/aibh-mascot.png">
+
+<link rel="icon" href="assets/img/aibh-mascot.png">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Anton&family=Newsreader:ital,opsz,wght@0,6..72,300..600;1,6..72,300..500&family=Poppins:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="assets/css/app.css">
+</head>
+<body>
+
+<div class="grain" aria-hidden="true"></div>
+<div class="field" aria-hidden="true"></div>
+
+<div class="app">
+
+  <header class="masthead">
+    <a class="lockup" href="./" aria-label="Forge by Bahrain AI — start over">
+      <span class="lockup__badge">
+        <img src="assets/img/aibh-mascot.png" alt="" width="44" height="44">
+      </span>
+      <span class="lockup__text">
+        <span class="lockup__name">Forge</span>
+        <span class="lockup__by">Bahrain AI</span>
+      </span>
+    </a>
+
+    <div class="masthead__right">
+      <span class="counter" id="counter" hidden>
+        <span class="counter__now" id="counterNow">01</span><span class="counter__sep">/</span><span class="counter__all" id="counterAll">10</span>
+      </span>
+      <button class="ghostbtn" id="restartBtn" type="button" hidden>Start over</button>
+    </div>
+  </header>
+
+  <div class="progress" id="progress" hidden>
+    <div class="progress__bar" id="progressBar"></div>
+  </div>
+
+  <main class="stage" id="stage" tabindex="-1"></main>
+
+  <footer class="actionbar" id="actionbar" hidden>
+    <div class="actionbar__inner">
+      <button class="btn btn--ghost" id="backBtn" type="button">
+        <svg viewBox="0 0 16 16" width="14" height="14" aria-hidden="true"><path d="M10 3 5 8l5 5" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg>
+        Back
+      </button>
+      <div class="actionbar__hint" id="actionHint"></div>
+      <button class="btn btn--primary" id="nextBtn" type="button">
+        <span id="nextLabel">Continue</span>
+        <svg viewBox="0 0 16 16" width="14" height="14" aria-hidden="true"><path d="M6 3l5 5-5 5" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg>
+      </button>
+    </div>
+  </footer>
+
+</div>
+
+<div class="toast" id="toast" role="status" aria-live="polite"></div>
+
+<script src="assets/js/config.js"></script>
+<script src="assets/js/data/domains.js"></script>
+<script src="assets/js/data/models.js"></script>
+<script src="assets/js/data/tools.js"></script>
+<script src="assets/js/data/formats.js"></script>
+<script src="assets/js/data/behaviour.js"></script>
+<script src="assets/js/data/clarifiers.js"></script>
+<script src="assets/js/flow.js"></script>
+<script src="assets/js/compose.js"></script>
+<script src="assets/js/lead.js"></script>
+<script src="assets/js/ui.js"></script>
+<script src="assets/js/app.js"></script>
+</body>
+</html>
