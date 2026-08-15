@@ -1,40 +1,41 @@
 # Forge — a system-prompt builder as a lead magnet
 
-A one-question-per-screen form. Someone answers ~12 taps about their work,
-their tools and their model, and walks away with a genuinely good system
-prompt, install instructions for their specific tool, and an invitation to the
-Bahrain AI Skool community.
+Five questions. Someone answers them, and walks away with a genuinely good
+system prompt, install instructions for their specific tool, and an invitation
+to the MENA AI Community.
 
-No build step, no dependencies, no backend. Plain HTML, CSS and JavaScript.
-The prompt is composed entirely in the visitor's browser — nothing they type
-is ever transmitted except their email address.
+Fully bilingual — English and Arabic, with RTL layout. No build step, no
+dependencies, no backend. Plain HTML, CSS and JavaScript.
 
 ---
 
-## Go live in three steps
+## Go live in four steps
 
-### 1. Your Skool link
+### 1. Your links
 
 `assets/js/config.js`:
 
 ```js
-skoolUrl: "https://www.skool.com/your-community",
+skoolUrl:    "https://www.skool.com/your-community",
+whatsappUrl: "https://chat.whatsapp.com/your-invite",
 ```
 
-Until you set this, the final CTA renders as a disabled button that says
+Until `skoolUrl` is set, the final CTA renders as a **disabled** button reading
 "Community link not set yet" — deliberately obvious, so it can't ship broken.
 
-### 2. Lead capture
+### 2. Lead capture + welcome email
 
-Follow `apps-script/README-SETUP.md` (about five minutes), then paste the
-resulting `/exec` URL into the same config file:
+Follow `apps-script/README-SETUP.md` (about five minutes). Paste the same two
+links into the top of `apps-script/Code.gs` as well — that file runs on
+Google's servers and can't read `config.js`. Then paste the resulting `/exec`
+URL back into `config.js`:
 
 ```js
 leadsEndpoint: "https://script.google.com/macros/s/AKfy..../exec",
 ```
 
-Skipping this doesn't break anything — leads just fall back to the visitor's
-own browser storage and a console warning.
+Skipping this doesn't break anything — leads fall back to the visitor's own
+browser storage and a console warning, and no email is sent.
 
 ### 3. Publish to GitHub Pages
 
@@ -49,15 +50,28 @@ git remote add origin https://github.com/<you>/<repo>.git && git branch -M main 
 ```
 
 In the repo: **Settings → Pages → Source: Deploy from a branch → main / (root)
-→ Save**. It's live at `https://<you>.github.io/<repo>/` in about a minute.
+→ Save**. Live at `https://<you>.github.io/<repo>/` in about a minute.
+
+**This is what "always on" means.** The files sit on GitHub's servers and are
+served 24/7 whether your laptop is on or not. Nothing runs on your machine.
+
+### 4. Bump the cache when you change anything
+
+`sw.js` caches the app so repeat visits are instant and work offline. After
+editing any file, change the version at the top:
+
+```js
+var CACHE = "forge-v2";   // was forge-v1
+```
+
+Returning visitors keep the old copy until this changes.
 
 ---
 
 ## Running it locally
 
-Double-click `index.html` and it works — there's no build and no module
-loading, so `file://` is fine. To serve it over HTTP instead (needed if you
-want the clipboard API, which browsers restrict to secure contexts):
+Double-click `index.html` — no build, no modules, `file://` works. To serve
+over HTTP (needed for the clipboard API and the service worker):
 
 ```bash
 python -m http.server 8412 --directory prompt-forge
@@ -67,39 +81,17 @@ There's also a `prompt-forge` entry in the workspace's `.claude/launch.json`.
 
 ---
 
-## Editing the content
+## How the prompt is generated
 
-All the substance lives in `assets/js/data/`. These are plain arrays — no
-framework, no schema to learn. Change one and reload.
+**No AI is called.** Nothing hits Claude, ChatGPT or any API.
 
-| File | What's in it |
-|---|---|
-| `domains.js` | The 16 fields (finance, clinics, legal…) and the 10 task archetypes, each with its real operating method, standards and failure modes. **This is the file that decides whether the output is good.** |
-| `models.js` | Tools (Claude Code, Claude, API, ChatGPT, Gemini, editor agents), their prompt dialect, and their install steps. Also Claude model tiers and plan tiers. |
-| `tools.js` | What the assistant can reach, and the usage policy + hard guardrail each one contributes. |
-| `formats.js` | Output contracts, each with an example skeleton the model has to follow. |
-| `behaviour.js` | Voice/rigour traits and the "never do this" guardrails. |
-| `clarifiers.js` | The adaptive follow-up questions. Each has a `when()` predicate and a `priority`; the top two matches are shown. |
+`assets/js/data/` is a hand-written library of prompt fragments — roughly 400
+sentences. The finance entry, for instance, literally contains *"Show the
+arithmetic for anything derived. A number without its calculation is not
+usable."*
 
-### Add a new field
-
-Copy a block in `domains.js`, give it a unique `id`, and list which task ids it
-offers. That's the whole change — it appears in the form immediately.
-
-### Add a new clarifying question
-
-Add an object to `FORGE.CLARIFIERS` with a `when(answers)` predicate, a
-`priority`, and a `section` saying where its chosen line lands in the finished
-prompt (`method`, `rules`, `context` or `tools`).
-
-Raising `FORGE.MAX_CLARIFIERS` above 2 makes the form noticeably longer.
-Drop-off climbs faster than prompt quality does — 2 was chosen deliberately.
-
----
-
-## How the prompt gets built
-
-`compose.js` assembles eight sections in a fixed order:
+The five answers **select** fragments; `compose.js` assembles them in a fixed
+order:
 
 ```
 role → context → objective → method → tools → output → rules → never → when_unsure
@@ -107,13 +99,65 @@ role → context → objective → method → tools → output → rules → nev
 
 Identity and context go first because models weight early instructions more
 heavily; hard prohibitions go last, closest to the response. For Claude the
-sections are wrapped in XML tags (`<context>`, `<method>`…); for ChatGPT and
-Gemini they become markdown headers. That switch is the `dialect` field on
-each tool in `models.js`.
+sections are wrapped in XML tags; for ChatGPT and Gemini they become markdown
+headers (the `dialect` field on each tool in `models.js`).
 
-Every line in the output traces back to a specific answer. Nothing is
-generated at runtime by an LLM, which is why it's instant, free, and produces
-the same result twice.
+That's why it's instant, free forever, works offline, and produces the identical
+result twice. **The intelligence is in the writing, done once, up front.**
+
+### Five questions, not twelve
+
+Prompt quality lives in the fragment library, not in how many questions get
+asked. So `flow.js` → `applyDefaults()` derives the rest — output format, tone,
+tool access, guardrails, and seven of the eight clarifying questions — from the
+domain, task and tool the visitor already picked.
+
+The derived answers are *better* than the old twelve-question version in one
+respect: that build showed at most two clarifiers and threw the rest away, while
+this one applies every clarifier whose condition matches.
+
+Anything the visitor changes in the **Refine** panel is flagged in
+`answers.touched` and never recomputed underneath them.
+
+---
+
+## Language
+
+**The interface is bilingual. The generated prompt is always English.**
+
+This is deliberate, not an unfinished translation. Models follow English
+instructions more reliably — nuance, negation and format contracts hold up
+better. It costs the user nothing, because the prompt carries a line telling the
+model to *reply* in whichever language the person writes in. On the Arabic
+interface that `bilingual` trait is enabled automatically.
+
+English prompt, Arabic conversation. The result screen explains this in Arabic
+rather than hiding it.
+
+### Editing the Arabic
+
+All of it is in one file: `assets/js/data/ar.js`, keyed by the `id` of each
+English entry. Miss an id and that entry simply stays English — `FORGE.f()`
+falls back — so a partial translation degrades gracefully instead of rendering
+blanks. Interface chrome (buttons, headings, gate copy) lives in
+`assets/js/i18n.js`.
+
+---
+
+## Editing the content
+
+| File | What's in it |
+|---|---|
+| `data/domains.js` | 16 fields and 10 task archetypes, each with real method steps, standards and failure modes. **This file decides whether the output is good.** |
+| `data/models.js` | Tools, their prompt dialect, install steps; Claude model tiers and plan tiers. |
+| `data/tools.js` | What the assistant can reach — each contributes a usage policy *and* a hard guardrail. |
+| `data/formats.js` | Output contracts, each with an example skeleton. |
+| `data/behaviour.js` | Voice/rigour traits and the "never do this" guardrails. |
+| `data/clarifiers.js` | Conditional prompt rules. `stakes` is asked; the rest are derived. |
+| `data/ar.js` | Every Arabic translation. |
+
+**Add a field:** copy a block in `domains.js`, give it a unique `id`, list which
+task ids it offers, and add a `label` to `ar.js`. It appears immediately.
 
 ---
 
@@ -121,28 +165,31 @@ the same result twice.
 
 ```
 index.html                  markup shell
-assets/css/app.css          the whole design system
+sw.js                       offline cache (bump CACHE on every deploy)
+manifest.webmanifest        installable-app metadata
+assets/css/app.css          the whole design system, incl. RTL
 assets/js/config.js         ← the only file you must edit
+assets/js/i18n.js           interface strings + language resolver
 assets/js/data/*.js         the content library (above)
-assets/js/flow.js           question graph + state machine
+assets/js/flow.js           five questions + the defaults engine
 assets/js/compose.js        answers → system prompt
 assets/js/lead.js           email capture + Apps Script POST
 assets/js/ui.js             screen rendering
-assets/js/app.js            navigation, keyboard, events
-apps-script/Code.gs         the Google Sheets endpoint
+assets/js/app.js            navigation, keyboard, refine panel
+apps-script/Code.gs         Google Sheets endpoint + welcome email
 ```
 
 ---
 
 ## Notes
 
-- **Sessions resume.** Answers persist in `localStorage`, so someone who
-  closes the tab returns to the question they left. Someone who already
-  unlocked once is never asked for their email again.
-- **Keyboard.** Number keys pick options, Enter continues. Worth mentioning
-  when you share it — it makes the whole thing take about 40 seconds.
+- **Sessions resume.** Answers persist in `localStorage`; someone who closes the
+  tab returns to where they left off, and someone who already unlocked is never
+  asked for their email again.
+- **Keyboard.** Number keys pick options, Enter continues. Worth mentioning when
+  you share it — it makes the whole thing take about ten seconds.
+- **"Build it now"** appears from question 2 and fills the rest with defaults.
 - **Accessibility.** All text meets AA contrast, every control has a
   focus-visible ring, and `prefers-reduced-motion` is respected.
-- **Model facts** in `models.js` (Opus 5, Sonnet 5, Haiku 4.5, Fable 5, and
-  the API notes) were current when built. Plan advice is deliberately written
+- **Model facts** in `models.js` were current when built. Plan advice is written
   in terms of behaviour rather than quoted usage limits, because those change.

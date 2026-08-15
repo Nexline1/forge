@@ -1,29 +1,32 @@
 /* =============================================================================
    CONTROLLER
-   Owns the step index, the transitions, and every event on the page.
+   Owns the step index, transitions, and every event on the page.
    ============================================================================= */
 
 (function () {
-  var flow = FORGE.flow, ui = FORGE.ui;
+  var flow = FORGE.flow, ui = FORGE.ui, T = FORGE.t;
 
   var stage = document.getElementById("stage");
   var bar = document.getElementById("actionbar");
   var nextBtn = document.getElementById("nextBtn");
   var nextLabel = document.getElementById("nextLabel");
   var backBtn = document.getElementById("backBtn");
-  var hint = document.getElementById("actionHint");
+  var backLabel = document.getElementById("backLabel");
+  var skipBtn = document.getElementById("skipBtn");
   var progress = document.getElementById("progress");
   var progressBar = document.getElementById("progressBar");
   var counter = document.getElementById("counter");
   var counterNow = document.getElementById("counterNow");
   var counterAll = document.getElementById("counterAll");
   var restartBtn = document.getElementById("restartBtn");
+  var langBtn = document.getElementById("langBtn");
   var toastEl = document.getElementById("toast");
 
+  var TOTAL = 5;
   var steps = [];
   var idx = 0;
-  var promptText = "";   // the composed prompt, before their edits
-  var edited = null;     // their edited version, if any
+  var promptText = "";
+  var edited = null;
   var toastTimer = null;
   var advanceTimer = null;
 
@@ -33,30 +36,14 @@
     toastEl.textContent = msg;
     toastEl.classList.add("is-on");
     clearTimeout(toastTimer);
-    toastTimer = setTimeout(function () { toastEl.classList.remove("is-on"); }, 2200);
+    toastTimer = setTimeout(function () { toastEl.classList.remove("is-on"); }, 2600);
   }
 
   function pad(n) { return n < 10 ? "0" + n : "" + n; }
 
-  function questionSteps() {
-    return steps.filter(function (s) {
-      return ["single", "multi", "fields"].indexOf(s.type) !== -1;
-    });
-  }
-
-  /* Predict the finished length so the bar doesn't lurch as steps appear. */
-  function predictedTotal() {
-    var a = flow.answers();
-    var n = 8; // domain, task, tool, access, format, traits, guards, about
-    var t = FORGE.toolById(a.tool);
-    if (!t) {
-      n += 1;
-    } else {
-      if (t.vendor === "claude") n += 1;
-      if (["claude-code", "claude-app", "chatgpt", "gemini"].indexOf(t.id) !== -1) n += 1;
-    }
-    n += a.format ? flow.activeClarifiers().length : FORGE.MAX_CLARIFIERS;
-    return n;
+  function recompose() {
+    promptText = FORGE.compose.build(flow.answers());
+    return promptText;
   }
 
   /* ---------- render ----------------------------------------------------- */
@@ -70,27 +57,26 @@
     var a = flow.answers();
 
     if (step.type === "gate" || step.type === "result") {
-      if (!promptText) promptText = FORGE.compose.build(a);
+      if (!promptText) recompose();
     }
 
     var html;
     switch (step.type) {
       case "intro":  html = ui.intro(); break;
       case "single": html = ui.single(step, a); break;
-      case "multi":  html = ui.multi(step, a); break;
       case "fields": html = ui.fields(step, a); break;
       case "gate":   html = ui.gate(a, promptText); break;
       case "result": html = ui.result(a, edited != null ? edited : promptText); break;
     }
     stage.innerHTML = html;
     chrome(step);
-    window.scrollTo({ top: 0, behavior: "instant" in document.documentElement.style ? "instant" : "auto" });
+    window.scrollTo(0, 0);
     stage.focus({ preventScroll: true });
     bindScreen(step);
   }
 
   function chrome(step) {
-    var isQuestion = ["single", "multi", "fields"].indexOf(step.type) !== -1;
+    var isQuestion = ["single", "fields"].indexOf(step.type) !== -1;
     var showChrome = step.type !== "intro";
 
     bar.hidden = !isQuestion;
@@ -98,24 +84,22 @@
     counter.hidden = !isQuestion;
     restartBtn.hidden = !showChrome;
 
+    backLabel.textContent = T("back");
+    restartBtn.textContent = T("startOver");
+    document.getElementById("lockupBy").textContent = T("by");
+
     if (isQuestion) {
-      var qs = questionSteps();
-      var pos = qs.indexOf(step) + 1;
-      var total = Math.max(predictedTotal(), qs.length);
-      counterNow.textContent = pad(pos);
-      counterAll.textContent = pad(total);
-      progressBar.style.width = ((pos - 1) / total * 100) + "%";
+      counterNow.textContent = pad(step.n);
+      counterAll.textContent = pad(TOTAL);
+      progressBar.style.width = ((step.n - 1) / TOTAL * 100) + "%";
 
       backBtn.disabled = idx <= 1;
-      var last = idx === steps.length - 3; // about → gate → result
-      nextLabel.textContent = last ? "See my prompt" : "Continue";
+      nextLabel.textContent = step.n === TOTAL ? T("seePrompt") : T("continue");
       nextBtn.disabled = !flow.isAnswered(step);
 
-      hint.innerHTML = step.type === "single"
-        ? 'Press <kbd>1</kbd>–<kbd>9</kbd> to choose'
-        : step.type === "multi"
-          ? 'Pick as many as apply'
-          : 'All optional — skip anything';
+      // Escape hatch from question 2 onward.
+      skipBtn.hidden = step.n < 2 || step.n === TOTAL;
+      skipBtn.textContent = T("buildNow");
     } else if (showChrome) {
       progressBar.style.width = step.type === "result" ? "100%" : "94%";
     }
@@ -130,8 +114,8 @@
       return;
     }
 
-    if (step.type === "single" || step.type === "multi") {
-      stage.querySelectorAll(".opt").forEach(function (el) {
+    if (step.type === "single") {
+      stage.querySelectorAll(".tile").forEach(function (el) {
         el.addEventListener("click", function () { choose(step, el.dataset.opt); });
       });
       var other = document.getElementById("otherInput");
@@ -157,20 +141,12 @@
   }
 
   function choose(step, optId) {
-    if (step.type === "single") {
-      flow.setSingle(step, optId);
-      render();
-      // Auto-advance keeps a 12-screen form feeling like a 6-screen one.
-      // Not when they picked "other" — that needs a text answer first.
-      var needsText = step.otherFor && optId === step.otherFor;
-      if (!needsText) {
-        clearTimeout(advanceTimer);
-        advanceTimer = setTimeout(function () { go(idx + 1); }, 240);
-      }
-    } else {
-      var r = flow.toggleMulti(step, optId);
-      if (r && r.full) { toast("That's the maximum — deselect one first."); return; }
-      render();
+    flow.setSingle(step, optId);
+    render();
+    var needsText = step.otherFor && optId === step.otherFor;
+    if (!needsText) {
+      clearTimeout(advanceTimer);
+      advanceTimer = setTimeout(function () { go(idx + 1); }, 220);
     }
   }
 
@@ -186,45 +162,46 @@
       e.preventDefault();
       var v = email.value.trim();
       if (!FORGE.lead.validEmail(v)) {
-        err.textContent = "That doesn't look like a working email address.";
+        err.textContent = T("badEmail");
         email.focus();
         return;
       }
       err.textContent = "";
       btn.disabled = true;
-      btn.innerHTML = '<span class="spinner"></span> Unlocking';
+      btn.innerHTML = '<span class="spinner"></span> ' + ui.esc(T("unlocking"));
 
-      FORGE.lead
-        .submit(v, consent ? consent.checked : false, FORGE.compose.leadMeta(flow.answers()))
-        .then(function () {
-          FORGE.lead.markUnlocked(v);
-          flow.answers().unlocked = true;
-          flow.save();
-          go(idx + 1);
-        });
+      var meta = FORGE.compose.leadMeta(flow.answers());
+      meta.lang = FORGE.i18n.lang();
+
+      FORGE.lead.submit(v, consent ? consent.checked : false, meta).then(function () {
+        FORGE.lead.markUnlocked(v);
+        flow.answers().unlocked = true;
+        flow.save();
+        go(idx + 1);
+      });
     });
   }
 
   function bindResult() {
     var box = document.getElementById("promptBox");
-
     box.addEventListener("input", function () { edited = box.value; });
 
     document.getElementById("copyBtn").addEventListener("click", function () {
       copy(box.value).then(function (ok) {
-        toast(ok ? "Copied — paste it into " + (FORGE.toolById(flow.answers().tool) || {}).label : "Couldn't copy — select it and copy manually");
+        // Peak goodwill: they just got the thing they came for.
+        toast(ok ? T("copyNudge") : T("copyFail"));
       });
     });
 
     document.getElementById("dlBtn").addEventListener("click", function () {
       download(FORGE.compose.title(flow.answers()) + ".md", box.value);
-      toast("Downloaded");
+      toast(T("downloaded"));
     });
 
     document.getElementById("revertBtn").addEventListener("click", function () {
-      box.value = promptText;
+      box.value = recompose();
       edited = null;
-      toast("Back to the original");
+      toast(T("reverted"));
     });
 
     document.getElementById("againBtn").addEventListener("click", function () {
@@ -232,6 +209,60 @@
       promptText = ""; edited = null; idx = 0;
       render();
     });
+
+    /* --- refine panel --- */
+    var panel = document.getElementById("refine");
+    var refineBtn = document.getElementById("refineBtn");
+
+    function openRefine(force) {
+      panel.hidden = force ? false : !panel.hidden;
+      refineBtn.textContent = panel.hidden ? T("refineOpen") : T("refineClose");
+      refineBtn.classList.toggle("is-done", !panel.hidden);
+      if (!panel.hidden) panel.scrollIntoView({ behavior: "smooth", block: "nearest" });
+    }
+    refineBtn.addEventListener("click", function () { openRefine(false); });
+
+    var nudgeBtn = document.getElementById("nudgeBtn");
+    if (nudgeBtn) nudgeBtn.addEventListener("click", function () { openRefine(true); });
+
+    panel.querySelectorAll(".rchip").forEach(function (chip) {
+      chip.addEventListener("click", function () {
+        var key = chip.dataset.rkey, val = chip.dataset.rval;
+        if (chip.dataset.rmulti === "1") {
+          var max = key === "traits" ? 5 : 0;
+          var r = flow.refineToggle(key, val, max);
+          if (r && r.full) { toast(T("maxPicked")); return; }
+        } else {
+          flow.refineSingle(key, val);
+        }
+        refresh();
+      });
+    });
+
+    var always = document.getElementById("alwaysInput");
+    if (always) {
+      always.addEventListener("input", function () {
+        flow.setField("always", always.value);
+        refresh(true);
+      });
+    }
+
+    /* Repaint the chips + prompt without losing panel state or focus. */
+    function refresh(textOnly) {
+      edited = null;
+      var text = recompose();
+      box.value = text;
+      if (textOnly) return;
+      var a = flow.answers();
+      panel.querySelectorAll(".rchip").forEach(function (c) {
+        var key = c.dataset.rkey, val = c.dataset.rval;
+        var on = c.dataset.rmulti === "1"
+          ? (a[key] || []).indexOf(val) !== -1
+          : a[key] === val;
+        c.classList.toggle("is-on", on);
+        c.setAttribute("aria-pressed", on ? "true" : "false");
+      });
+    }
   }
 
   /* ---------- actions ---------------------------------------------------- */
@@ -270,10 +301,9 @@
     clearTimeout(advanceTimer);
     var target = steps[n];
     if (!target) return;
-    // Recompose whenever we re-enter the tail, so edits upstream take effect.
     if (target.type === "gate" || target.type === "result") {
-      promptText = FORGE.compose.build(flow.answers());
-      if (edited != null) edited = null;
+      recompose();
+      edited = null;
     }
     idx = n;
     render();
@@ -284,7 +314,6 @@
   nextBtn.addEventListener("click", function () {
     var step = steps[idx];
     if (!flow.isAnswered(step)) return;
-    // Skip the gate for anyone who already unlocked in a previous session.
     var n = idx + 1;
     if (steps[n] && steps[n].type === "gate" && FORGE.lead.alreadyUnlocked()) n += 1;
     go(n);
@@ -296,12 +325,56 @@
     go(Math.max(1, n));
   });
 
+  skipBtn.addEventListener("click", function () {
+    flow.fillRemaining();
+    steps = flow.buildSteps();
+    var gateIdx = steps.findIndex(function (s) { return s.type === "gate"; });
+    if (gateIdx === -1) return;
+    if (FORGE.lead.alreadyUnlocked()) gateIdx += 1;
+    go(gateIdx);
+  });
+
+  /* Two-step inline confirm instead of a native confirm() dialog.
+     Browsers suppress repeated dialogs — once the visitor ticks "prevent this
+     page from creating additional dialogs", confirm() silently returns false
+     and the button appears dead. An inline confirm can't be suppressed. */
+  var restartArmed = null;
+  function disarmRestart() {
+    clearTimeout(restartArmed);
+    restartArmed = null;
+    restartBtn.textContent = T("startOver");
+    restartBtn.classList.remove("is-armed");
+  }
   restartBtn.addEventListener("click", function () {
-    if (!confirm("Start over? Your answers will be cleared.")) return;
+    if (!restartArmed) {
+      restartBtn.textContent = T("restartConfirm");
+      restartBtn.classList.add("is-armed");
+      restartArmed = setTimeout(disarmRestart, 3000);
+      return;
+    }
+    disarmRestart();
+    // A real start-over forgets the email too, or the gate is skipped on the
+    // way back through and it doesn't feel like starting over at all.
     flow.reset();
+    try { localStorage.removeItem("forge_unlocked_v1"); } catch (e) { /* noop */ }
     promptText = ""; edited = null; idx = 0;
     render();
   });
+
+  langBtn.addEventListener("click", function () {
+    FORGE.i18n.set(FORGE.i18n.lang() === "ar" ? "en" : "ar");
+    syncLangBtn();
+    flow.applyDefaults();          // bilingual trait follows the interface
+    promptText = ""; edited = null;
+    render();
+  });
+
+  function syncLangBtn() {
+    // Always shows the language you'd switch TO.
+    langBtn.textContent = FORGE.i18n.lang() === "ar" ? "EN" : "عربي";
+    langBtn.setAttribute("aria-label",
+      FORGE.i18n.lang() === "ar" ? "Switch to English" : "التبديل إلى العربية");
+  }
 
   document.addEventListener("keydown", function (e) {
     var step = steps[idx];
@@ -311,7 +384,7 @@
     if (e.key === "Enter" && !e.shiftKey) {
       if (step.type === "intro") { e.preventDefault(); go(1); return; }
       if (step.type === "fields" && document.activeElement.tagName === "TEXTAREA") return;
-      if (["single", "multi", "fields"].indexOf(step.type) !== -1 && flow.isAnswered(step)) {
+      if (["single", "fields"].indexOf(step.type) !== -1 && flow.isAnswered(step)) {
         e.preventDefault();
         nextBtn.click();
       }
@@ -320,26 +393,35 @@
 
     if (typing) return;
 
-    if (/^[1-9]$/.test(e.key) && (step.type === "single" || step.type === "multi")) {
-      var i = parseInt(e.key, 10) - 1;
-      var opt = step.options[i];
+    if (/^[1-9]$/.test(e.key) && step.type === "single") {
+      var opt = step.options[parseInt(e.key, 10) - 1];
       if (opt) { e.preventDefault(); choose(step, opt.id); }
     }
   });
 
   /* ---------- boot -------------------------------------------------------- */
 
+  // ?reset=1 — wipes the session AND the "already gave us their email" flag.
+  // Returning visitors deliberately skip the gate, which makes it look like the
+  // gate is gone when you re-test on your own machine. This is how you see it
+  // again without clearing site data by hand.
+  if (/[?&]reset=1\b/.test(location.search)) {
+    flow.reset();
+    try { localStorage.removeItem("forge_unlocked_v1"); } catch (e) { /* noop */ }
+    history.replaceState(null, "", location.pathname);
+  }
+
+  syncLangBtn();
+
   if (flow.load()) {
     steps = flow.buildSteps();
-    // Drop them back on the first unanswered question rather than the start.
     var resume = 1;
     for (var i = 1; i < steps.length; i++) {
       var s = steps[i];
-      if (["single", "multi", "fields"].indexOf(s.type) === -1) break;
+      if (["single", "fields"].indexOf(s.type) === -1) break;
       if (!flow.isAnswered(s)) { resume = i; break; }
       resume = i + 1;
     }
-    // Someone who already gave us their email shouldn't be asked for it twice.
     if (steps[resume] && steps[resume].type === "gate" && FORGE.lead.alreadyUnlocked()) resume += 1;
     idx = 0;
     render();

@@ -1,22 +1,27 @@
 <!doctype html>
-<html lang="en">
+<html lang="en" dir="ltr">
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-<title>Forge — build a system prompt that actually works | Bahrain AI</title>
-<meta name="description" content="Answer a few questions. Walk away with a production-grade system prompt built for your job, your tools and your model. Free, from the Bahrain AI community.">
-<meta name="theme-color" content="#ffffff">
+<title>Forge — build a system prompt that actually works | MENA AI Community</title>
+<meta name="description" content="Five questions. Walk away with a system prompt built for your job, your tools and your model. Free, from the MENA AI Community.">
+<meta name="theme-color" content="#101F3D">
 
 <meta property="og:title" content="Forge — build a system prompt that actually works">
-<meta property="og:description" content="Answer a few questions. Walk away with a production-grade system prompt built for your job, your tools and your model.">
+<meta property="og:description" content="Five questions. Walk away with a system prompt built for your job, your tools and your model.">
 <meta property="og:type" content="website">
 <meta property="og:image" content="assets/img/aibh-mascot.png">
 
 <link rel="icon" href="assets/img/aibh-mascot.png">
+<link rel="manifest" href="manifest.webmanifest">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=Anton&family=Newsreader:ital,opsz,wght@0,6..72,300..600;1,6..72,300..500&family=Poppins:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Anton&family=Newsreader:ital,opsz,wght@0,6..72,300..600;1,6..72,300..500&family=Poppins:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&family=IBM+Plex+Sans+Arabic:wght@400;500;600;700&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="assets/css/app.css">
+
+<!-- Language must resolve before first paint, or the page flashes LTR. -->
+<script src="assets/js/config.js"></script>
+<script src="assets/js/i18n.js"></script>
 </head>
 <body>
 
@@ -26,19 +31,22 @@
 <div class="app">
 
   <header class="masthead">
-    <a class="lockup" href="./" aria-label="Forge by Bahrain AI — start over">
-      <span class="lockup__badge">
-        <img src="assets/img/aibh-mascot.png" alt="" width="44" height="44">
-      </span>
-      <span class="lockup__text">
-        <span class="lockup__name">Forge</span>
-        <span class="lockup__by">Bahrain AI</span>
-      </span>
-    </a>
+    <div class="masthead__left">
+      <a class="lockup" href="./" aria-label="Forge by the MENA AI Community — start over">
+        <img class="lockup__mark" src="assets/img/aibh-mascot.png" alt="" width="40" height="40">
+        <span class="lockup__text">
+          <span class="lockup__name">Forge</span>
+          <span class="lockup__by" id="lockupBy">MENA AI Community</span>
+        </span>
+      </a>
+      <button class="langbtn" id="langBtn" type="button">عربي</button>
+    </div>
 
     <div class="masthead__right">
-      <span class="counter" id="counter" hidden>
-        <span class="counter__now" id="counterNow">01</span><span class="counter__sep">/</span><span class="counter__all" id="counterAll">10</span>
+      <!-- dir=ltr: a numeric ratio must read "02 / 05" in both languages;
+           inheriting RTL renders it reversed. -->
+      <span class="counter" id="counter" dir="ltr" hidden>
+        <span class="counter__now" id="counterNow">01</span><span class="counter__sep">/</span><span class="counter__all" id="counterAll">05</span>
       </span>
       <button class="ghostbtn" id="restartBtn" type="button" hidden>Start over</button>
     </div>
@@ -53,13 +61,15 @@
   <footer class="actionbar" id="actionbar" hidden>
     <div class="actionbar__inner">
       <button class="btn btn--ghost" id="backBtn" type="button">
-        <svg viewBox="0 0 16 16" width="14" height="14" aria-hidden="true"><path d="M10 3 5 8l5 5" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg>
-        Back
+        <svg class="chev chev--back" viewBox="0 0 16 16" width="14" height="14" aria-hidden="true"><path d="M10 3 5 8l5 5" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg>
+        <span id="backLabel">Back</span>
       </button>
-      <div class="actionbar__hint" id="actionHint"></div>
+      <div class="actionbar__mid">
+        <button class="skipbtn" id="skipBtn" type="button" hidden>Build it now</button>
+      </div>
       <button class="btn btn--primary" id="nextBtn" type="button">
         <span id="nextLabel">Continue</span>
-        <svg viewBox="0 0 16 16" width="14" height="14" aria-hidden="true"><path d="M6 3l5 5-5 5" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg>
+        <svg class="chev chev--next" viewBox="0 0 16 16" width="14" height="14" aria-hidden="true"><path d="M6 3l5 5-5 5" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg>
       </button>
     </div>
   </footer>
@@ -68,17 +78,24 @@
 
 <div class="toast" id="toast" role="status" aria-live="polite"></div>
 
-<script src="assets/js/config.js"></script>
 <script src="assets/js/data/domains.js"></script>
 <script src="assets/js/data/models.js"></script>
 <script src="assets/js/data/tools.js"></script>
 <script src="assets/js/data/formats.js"></script>
 <script src="assets/js/data/behaviour.js"></script>
 <script src="assets/js/data/clarifiers.js"></script>
+<script src="assets/js/data/ar.js"></script>
 <script src="assets/js/flow.js"></script>
 <script src="assets/js/compose.js"></script>
 <script src="assets/js/lead.js"></script>
 <script src="assets/js/ui.js"></script>
 <script src="assets/js/app.js"></script>
+<script>
+  if ("serviceWorker" in navigator) {
+    window.addEventListener("load", function () {
+      navigator.serviceWorker.register("sw.js").catch(function () { /* offline is a bonus, not a requirement */ });
+    });
+  }
+</script>
 </body>
 </html>

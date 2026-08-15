@@ -1,9 +1,26 @@
-# Lead capture — 5 minute setup
+# Lead capture + welcome email — 5 minute setup
 
-This puts every unlocked lead into a Google Sheet you own. No third-party
-service, no monthly cap, no account to create.
+This puts every unlocked lead into a Google Sheet you own, and sends them one
+plain welcome email with your community links. No third-party service, no
+monthly fee, no account to create.
 
 ---
+
+## 0. Put your links in the script
+
+Open `Code.gs` and edit the three constants at the top:
+
+```js
+var SKOOL_URL    = 'https://www.skool.com/your-community';
+var WHATSAPP_URL = 'https://chat.whatsapp.com/your-invite';
+var FROM_NAME    = 'MENA AI Community';
+```
+
+This file runs on Google's servers and can't read `config.js`, so the links
+have to be set in both places.
+
+Don't want the email? Set `SEND_WELCOME_EMAIL = false` and you'll just collect
+addresses.
 
 ## 1. Make the sheet
 
@@ -48,7 +65,31 @@ Open the `/exec` URL in a browser tab. You should see:
 {"ok":true,"service":"forge-leads","rows":0}
 ```
 
-Then run through the form yourself and confirm a row appears in the sheet.
+Then run through the form yourself and confirm a row appears in the sheet — and
+that the welcome email arrives.
+
+To read the email copy before anyone else sees it, run `testWelcomeEmail` from
+the Apps Script editor's function dropdown. It sends both the English and
+Arabic versions to yourself.
+
+### About the email
+
+It goes out **once, on first capture only** — repeat visitors are never
+re-mailed. It's sent in whichever language they used the site in.
+
+It's plain text on purpose: no banner, no buttons, no urgency. It says the
+community is free, that there's a free introductory course, that there are
+people there who help, and mentions the paid comprehensive course once, plainly,
+because hiding it would be worse. Edit `bodyEn_()` / `bodyAr_()` to change it.
+
+**Sending quota:** consumer Gmail allows ~100 Apps Script emails per day,
+Workspace ~1,500. `doGet` reports your remaining quota, so opening the `/exec`
+URL tells you where you stand. Fine at lead-magnet volume, but worth knowing
+before a launch push.
+
+A mail failure never costs you the lead — the send is wrapped in its own
+try/catch and the row records `failed` in the **Welcomed** column so you can
+follow up.
 
 ---
 
@@ -58,6 +99,8 @@ Then run through the form yourself and confirm a row appears in the sheet.
 |---|---|
 | First seen / Last seen / Times | Returning visitors update in place rather than duplicating |
 | Email, Consent | Consent is whether they ticked the mailing-list box |
+| Language | `en` or `ar` — which version of the site they used |
+| Welcomed | `yes`, `failed` or `skipped` — whether the welcome email sent |
 | Field, Job, Tool, Model, Plan | Their answers — this is your segmentation |
 | Tool access, Output format, Behaviour, Guardrails | Pipe-separated ids |
 | Company | Only if they filled the optional "company in one line" field |

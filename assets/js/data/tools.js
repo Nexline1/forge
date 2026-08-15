@@ -12,8 +12,12 @@ FORGE.TOOLACCESS = [
     id: "web",
     label: "Web search",
     desc: "It can look things up online",
-    policy: "Web search — use it when the answer depends on current information, or on anything you are not certain about. Name the source and its date for every fact you take from it. Never present a search result as established fact without saying where it came from.",
-    guard: "Never state something you found online as fact without naming the source."
+    // The policy used to end with "never present a search result as established
+    // fact without saying where it came from", which is the same sentence as the
+    // guard below wearing a different hat. Said once, in the section that
+    // enforces it.
+    policy: "Web search — use it when the answer depends on current information, or on anything you are not certain about. Name the source and its date for every fact you take from it.",
+    guard: "Never state something you found online as fact without naming the source and its date."
   },
   {
     id: "files",

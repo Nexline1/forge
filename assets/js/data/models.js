@@ -143,36 +143,81 @@ FORGE.TOOLS = [
 
 /* ---------- MODEL TIER (asked only for Claude tools) --------------------- */
 
+/* Each model gets a `tuning` block. These are not stylistic preferences — they
+   are documented behavioural differences between the models, and writing to
+   them is the single biggest lever on output quality.
+
+     add   — extra rules. Safe on any model, so they apply even when we only
+             *inferred* which model they're on.
+     drop  — source ids to SUPPRESS. Subtractive and riskier (removing a rule
+             that a weaker model needed would hurt), so these only fire when
+             the visitor explicitly picks the model in the Refine panel.
+     thin  — collapse the ordered method into principles.                    */
+
 FORGE.CLAUDE_MODELS = [
   {
     id: "opus",
     label: "Opus 5",
     desc: "The default for hard work — deep reasoning, long agentic runs",
-    note: "You're on the strongest general model, so the prompt leans on judgement rather than spelling out every step."
+    note: "You're on the strongest general model, so the prompt leans on judgement rather than spelling out every step.",
+    tuning: {
+      add: [
+        "Keep responses focused and brief. Most of the response should be the answer itself; keep caveats short. When asked to explain something, give a high-level summary unless depth was asked for.",
+        "Deliver what was asked, at the scope intended. Make routine judgement calls yourself and check in only when different readings would lead to materially different work. If you think the request is mistaken, say so in one sentence and continue with what was asked.",
+        "Correct an earlier statement only when the error changes what the operator should do. State the correction plainly and move on — no apologising, no recounting the mistake."
+      ],
+      // Opus 5 verifies its own work unprompted; telling it to verify produces
+      // over-verification. Honest-reporting lines stay — only the redundant
+      // instruct-to-verify line goes.
+      drop: ["clarifier:verify"],
+      agentic: [
+        "Delegate to subagents rarely. Each one re-establishes context and reports back, and you then re-read that report. Use them for genuinely independent, sizeable tracks — never to review or double-check your own work."
+      ]
+    }
   },
   {
     id: "sonnet",
     label: "Sonnet 5",
     desc: "Fast and near-Opus quality — good for high-volume work",
-    note: "Sonnet is fast and follows instructions literally, so the output contract in your prompt is doing a lot of the work. Keep it."
+    note: "Sonnet is fast and follows instructions literally, so the output contract in your prompt is doing a lot of the work. Keep it.",
+    tuning: {
+      // Sonnet 5 reads instructions literally and will not generalise a rule
+      // from one case to the next unless told to.
+      add: [
+        "Every instruction here applies to every item and every section, not only the first one you encounter."
+      ]
+    }
   },
   {
     id: "haiku",
     label: "Haiku 4.5",
     desc: "Cheapest and fastest — best for simple, repetitive tasks",
-    note: "On a small model, be more explicit and less clever. If quality slips, move the hard judgement calls out of the prompt and into your own review step."
+    note: "On a small model, be more explicit and less clever. If quality slips, move the hard judgement calls out of the prompt and into your own review step.",
+    tuning: {
+      add: [
+        "Prefer the direct, explicit answer over the clever one. If a task turns on judgement you are not confident about, say so and hand it back rather than guessing."
+      ]
+    }
   },
   {
     id: "fable",
     label: "Fable 5",
     desc: "The heaviest model, for the hardest problems",
-    note: "Fable thinks for a long time on hard problems — expect slow, thorough responses. Give it the whole task up front rather than drip-feeding it."
+    note: "Fable thinks for a long time on hard problems — expect slow, thorough responses. Give it the whole task up front rather than drip-feeding it.",
+    tuning: {
+      add: [
+        "When you have enough information to act, act. Don't re-derive what's already established, and don't narrate options you aren't going to pursue."
+      ],
+      // Over-prescriptive prompts measurably reduce Fable's output quality.
+      thin: true
+    }
   },
   {
     id: "unsure",
     label: "Not sure / whatever's default",
     desc: "Perfectly fine — I'll write it to work on any of them",
-    note: "Start on Opus 5 if you have it. If responses feel slow for simple work, switch to Sonnet 5 and see if quality holds."
+    note: "Start on Opus 5 if you have it. If responses feel slow for simple work, switch to Sonnet 5 and see if quality holds.",
+    tuning: {}
   }
 ];
 

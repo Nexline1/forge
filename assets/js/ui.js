@@ -1,12 +1,15 @@
 /* =============================================================================
    RENDER LAYER
-   Every screen is a pure function from state to HTML. app.js owns the
-   transitions and the event wiring.
+   Every screen is a pure function from state to HTML. app.js owns transitions
+   and event wiring. All copy goes through FORGE.t() / FORGE.f().
    ============================================================================= */
 
 window.FORGE = window.FORGE || {};
 
 FORGE.ui = (function () {
+
+  var T = function (k, v) { return FORGE.t(k, v); };
+  var F = function (o, f) { return FORGE.f(o, f); };
 
   function esc(s) {
     return String(s == null ? "" : s)
@@ -14,29 +17,28 @@ FORGE.ui = (function () {
       .replace(/"/g, "&quot;").replace(/'/g, "&#39;");
   }
 
-  var CHECK = '<svg viewBox="0 0 12 10" width="11" height="9" aria-hidden="true">' +
-    '<path d="M1 5l3.2 3.2L11 1.5" fill="none" stroke="#fff" stroke-width="2" ' +
+  var CHECK = '<svg viewBox="0 0 12 10" width="10" height="8" aria-hidden="true">' +
+    '<path d="M1 5l3.2 3.2L11 1.5" fill="none" stroke="currentColor" stroke-width="2.2" ' +
     'stroke-linecap="round" stroke-linejoin="round"/></svg>';
 
-  /* ---------- shared bits ------------------------------------------------ */
+  /* ---------- shared ----------------------------------------------------- */
 
   function head(step) {
-    return '<p class="eyebrow">' + esc(step.eyebrow) + '</p>' +
+    return (step.n ? '<p class="eyebrow">' + step.n + ' ' + esc(T("of")) + ' 5</p>' : '') +
       '<h1 class="q">' + step.question + '</h1>' +
       (step.help ? '<p class="q-help">' + esc(step.help) + '</p>' : '');
   }
 
-  function optionRow(o, i, on, multi) {
-    var key = i < 9 ? String(i + 1) : "";
-    return '<button type="button" class="opt' + (multi ? ' opt--multi' : '') +
-      (on ? ' is-on' : '') + '" data-opt="' + esc(o.id) + '" ' +
-      'role="' + (multi ? 'checkbox' : 'radio') + '" aria-checked="' + (on ? 'true' : 'false') + '">' +
-      '<span class="opt__key" aria-hidden="true">' + key + '</span>' +
-      '<span class="opt__body">' +
-      '<span class="opt__title">' + esc(o.label) + '</span>' +
-      (o.desc ? '<span class="opt__desc">' + esc(o.desc) + '</span>' : '') +
-      '</span>' +
-      '<span class="opt__mark">' + CHECK + '</span>' +
+  /* Compact tile. Label only unless the option carries a description —
+     the whole point is that a grid of short labels is scanned, not read. */
+  function tile(o, on) {
+    var desc = F(o, "desc");
+    return '<button type="button" class="tile' + (on ? ' is-on' : '') +
+      (desc ? ' tile--desc' : '') + '" data-opt="' + esc(o.id) + '" ' +
+      'role="radio" aria-checked="' + (on ? 'true' : 'false') + '">' +
+      '<span class="tile__label">' + esc(F(o, "label")) + '</span>' +
+      (desc ? '<span class="tile__desc">' + esc(desc) + '</span>' : '') +
+      '<span class="tile__tick" aria-hidden="true">' + CHECK + '</span>' +
       '</button>';
   }
 
@@ -44,31 +46,27 @@ FORGE.ui = (function () {
 
   function intro() {
     return '<section class="screen hero">' +
-      '<span class="hero__tag"><i></i> Free · from the ' + esc(FORGE_CONFIG.community) + ' community</span>' +
-      '<h1 class="hero__title">Stop explaining yourself to the AI <em>every single time.</em></h1>' +
-      '<p class="hero__lead">Answer a few questions about your work. Walk away with a system prompt built for your job, your tools and your model — the kind you paste in once and never rewrite.</p>' +
+      '<span class="hero__tag"><i></i> ' + esc(T("heroTag")) + '</span>' +
+      '<h1 class="hero__title">' + T("heroTitle") + '</h1>' +
+      '<p class="hero__lead">' + esc(T("heroLead")) + '</p>' +
       '<div class="hero__cta">' +
-      '<button class="btn btn--primary btn--lg" id="startBtn" type="button">Build my prompt' +
-      '<svg viewBox="0 0 16 16" width="15" height="15" aria-hidden="true"><path d="M6 3l5 5-5 5" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"/></svg>' +
+      '<button class="btn btn--primary btn--lg" id="startBtn" type="button">' + esc(T("heroCta")) +
+      '<svg class="arrow" viewBox="0 0 16 16" width="15" height="15" aria-hidden="true"><path d="M6 3l5 5-5 5" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"/></svg>' +
       '</button>' +
-      '<span class="hero__meta">About two minutes. No account.</span>' +
+      '<span class="hero__meta">' + esc(T("heroMeta")) + '</span>' +
       '</div>' +
-      '<div class="hero__proof">' +
-      '<div><div class="proof__n">One job</div><div class="proof__t">Built around what you actually do — not a generic "you are a helpful assistant".</div></div>' +
-      '<div><div class="proof__n">Your tools</div><div class="proof__t">Formatted for Claude Code, Claude, ChatGPT, Gemini or your editor, with install steps.</div></div>' +
-      '<div><div class="proof__n">Yours to edit</div><div class="proof__t">Editable, downloadable, and readable enough that you can change it later.</div></div>' +
-      '</div>' +
-      '</section>';
+      '<ul class="hero__proof">' +
+      '<li>' + esc(T("proof1t")) + '</li>' +
+      '<li>' + esc(T("proof2t")) + '</li>' +
+      '<li>' + esc(T("proof3t")) + '</li>' +
+      '</ul></section>';
   }
 
   function single(step, a) {
-    var current = step.key.indexOf("clarifier:") === 0
-      ? a.clarifiers[step.key.slice(10)]
-      : a[step.key];
-
+    var current = a[step.key];
     var html = '<section class="screen">' + head(step) +
-      '<div class="options' + (step.twoUp ? ' options--two' : '') + '" role="radiogroup">' +
-      step.options.map(function (o, i) { return optionRow(o, i, current === o.id, false); }).join("") +
+      '<div class="tiles' + (step.wide ? ' tiles--wide' : '') + '" role="radiogroup">' +
+      step.options.map(function (o) { return tile(o, current === o.id); }).join("") +
       '</div>';
 
     if (step.otherFor && current === step.otherFor) {
@@ -79,32 +77,13 @@ FORGE.ui = (function () {
     return html + '<div class="actionbar-space"></div></section>';
   }
 
-  function multi(step, a) {
-    var chosen = a[step.key] || [];
-    var tally = step.max
-      ? chosen.length + " of " + step.max + " selected"
-      : (chosen.length ? chosen.length + " selected" : "Select everything that applies");
-
-    return '<section class="screen">' + head(step) +
-      '<div class="options' + (step.twoUp ? ' options--two' : '') + '" role="group">' +
-      step.options.map(function (o, i) {
-        return optionRow(o, i, chosen.indexOf(o.id) !== -1, true);
-      }).join("") +
-      '</div>' +
-      '<p class="tally" id="tally">' + esc(tally) + '</p>' +
-      '<div class="actionbar-space"></div></section>';
-  }
-
   function fields(step, a) {
     return '<section class="screen">' + head(step) +
       '<div class="fields">' +
       step.fields.map(function (f) {
         var v = esc((a.about || {})[f.key] || "");
-        var el = f.area
-          ? '<textarea class="textarea" data-field="' + f.key + '" id="f_' + f.key + '" placeholder="' + esc(f.ph) + '">' + v + '</textarea>'
-          : '<input class="textinput" data-field="' + f.key + '" id="f_' + f.key + '" placeholder="' + esc(f.ph) + '" value="' + v + '">';
-        return '<div class="field-row"><label for="f_' + f.key + '">' + esc(f.label) +
-          '<span class="optional">optional</span></label>' + el + '</div>';
+        return '<textarea class="textarea" data-field="' + f.key + '" id="f_' + f.key +
+          '" placeholder="' + esc(f.ph) + '" aria-label="' + esc(f.ph) + '">' + v + '</textarea>';
       }).join("") +
       '</div><div class="actionbar-space"></div></section>';
   }
@@ -113,15 +92,14 @@ FORGE.ui = (function () {
     var preview = promptText.split("\n").slice(0, 18).join("\n");
     var lines = promptText.split("\n").length;
     var words = promptText.split(/\s+/).filter(Boolean).length;
+    var toolName = F(FORGE.toolById(a.tool) || {}, "label");
 
     return '<section class="screen screen--wide">' +
-      '<p class="eyebrow">Ready</p>' +
-      '<h1 class="q">Your prompt is <em>built.</em></h1>' +
-      '<p class="q-help">' + lines + ' lines, ' + words + ' words, written for ' +
-      esc((FORGE.toolById(a.tool) || {}).label || "your tool") +
-      '. Here’s the opening — tell me where to send the rest.</p>' +
+      '<p class="eyebrow">' + esc(T("gateEyebrow")) + '</p>' +
+      '<h1 class="q">' + T("gateTitle") + '</h1>' +
+      '<p class="q-help">' + esc(T("gateLead", { lines: lines, words: words, tool: toolName })) + '</p>' +
 
-      '<div class="paper gate" style="margin-top:24px">' +
+      '<div class="paper gate">' +
       '<div class="paper__head"><span class="paper__title"><span class="paper__dot"></span>' +
       esc(FORGE.compose.title(a)) + '.md</span></div>' +
       '<pre class="promptbox">' + esc(preview) + '</pre>' +
@@ -129,61 +107,122 @@ FORGE.ui = (function () {
       '</div>' +
 
       '<div class="gatecard">' +
-      '<div class="gatecard__t">Where should I send it?</div>' +
-      '<p class="gatecard__s">You’ll get the full prompt on the next screen — plus the setup steps for your tool.</p>' +
+      '<div class="gatecard__t">' + esc(T("gateAsk")) + '</div>' +
+      '<p class="gatecard__s">' + esc(T("gateSub")) + '</p>' +
       '<form id="gateForm" novalidate>' +
       '<input class="textinput" type="email" id="emailInput" inputmode="email" autocomplete="email" ' +
-      'placeholder="you@company.com" aria-label="Your email address" required>' +
+      'placeholder="' + esc(T("emailPh")) + '" aria-label="' + esc(T("gateAsk")) + '" required>' +
       (FORGE_CONFIG.askConsent
-        ? '<label class="check"><input type="checkbox" id="consentInput"> ' +
-          'Send me the occasional thing worth reading from ' + esc(FORGE_CONFIG.community) + '. No spam, unsubscribe anytime.</label>'
+        ? '<label class="check"><input type="checkbox" id="consentInput"> ' + esc(T("consent")) + '</label>'
         : '') +
       '<p class="errline" id="gateErr" role="alert"></p>' +
-      '<button class="btn btn--primary btn--block btn--lg" type="submit" id="unlockBtn">Unlock my prompt</button>' +
+      '<button class="btn btn--primary btn--block btn--lg" type="submit" id="unlockBtn">' + esc(T("unlock")) + '</button>' +
       '</form>' +
-      '<p class="fineprint">Your email, and nothing else. We never sell or share it.</p>' +
+      '<p class="fineprint">' + esc(T("fineprint")) + '</p>' +
       '</div>' +
+      '<p class="gate__community">' + esc(T("gateCommunity")) + '</p>' +
       '</section>';
   }
 
+  /* ---------- refine panel ------------------------------------------------ */
+
+  function chipRow(label, key, list, selected, multi) {
+    return '<div class="rrow">' +
+      '<div class="rrow__t">' + esc(label) + '</div>' +
+      '<div class="rrow__chips">' +
+      list.map(function (o) {
+        var on = multi ? selected.indexOf(o.id) !== -1 : selected === o.id;
+        return '<button type="button" class="rchip' + (on ? ' is-on' : '') + '" ' +
+          'data-rkey="' + esc(key) + '" data-rval="' + esc(o.id) + '" ' +
+          'data-rmulti="' + (multi ? "1" : "0") + '" aria-pressed="' + (on ? 'true' : 'false') + '" ' +
+          'title="' + esc(F(o, "desc")) + '">' + esc(F(o, "label")) + '</button>';
+      }).join("") +
+      '</div></div>';
+  }
+
+  function refinePanel(a) {
+    return '<div class="refine" id="refine" hidden>' +
+      '<p class="refine__lead">' + esc(T("refineLead")) + '</p>' +
+      chipRow(T("rFormat"), "format", FORGE.FORMATS, a.format, false) +
+      chipRow(T("rTone"), "traits", FORGE.TRAITS, a.traits || [], true) +
+      chipRow(T("rTools"), "tools", FORGE.TOOLACCESS, a.tools || [], true) +
+      chipRow(T("rGuards"), "guards", FORGE.GUARDRAILS, a.guards || [], true) +
+      chipRow(T("rPlan"), "plan", FORGE.PLANS, a.plan, false) +
+      '<div class="rrow"><div class="rrow__t">' + esc(T("rAlways")) + '</div>' +
+      '<textarea class="textarea textarea--sm" id="alwaysInput" placeholder="' +
+      esc(T("rAlwaysPh")) + '">' + esc((a.about || {}).always || "") + '</textarea></div>' +
+      '</div>';
+  }
+
+  /* One quiet line naming the single change that would most improve this
+     prompt. Deliberately one sentence — the page is meant to be scanned. */
+  function nudgeLine(a) {
+    var s = FORGE.compose.suggest(a);
+    if (!s) return "";
+    var text = s.text || T("nudge" + s.key.charAt(0).toUpperCase() + s.key.slice(1));
+    if (!text) return "";
+    return '<p class="nudge"><span class="nudge__dot"></span>' + esc(text) +
+      ' <button type="button" class="nudge__cta" id="nudgeBtn">' + esc(T("nudgeCta")) + '</button></p>';
+  }
+
+  /* ---------- result ------------------------------------------------------ */
+
   function result(a, promptText) {
     var tool = FORGE.toolById(a.tool) || { label: "your tool", install: [], tips: [] };
+    var toolName = F(tool, "label");
     var model = FORGE.CLAUDE_MODELS.find(function (m) { return m.id === a.model; });
     var plan = FORGE.PLANS.find(function (p) { return p.id === a.plan; });
     var chips = FORGE.compose.summary(a);
     var skool = FORGE.lead.skoolUrl();
 
     var notes = [];
-    if (model && model.note) notes.push(model.note);
-    if (plan && plan.note) notes.push(plan.note);
-    tool.tips.forEach(function (t) { notes.push(t); });
+    if (model && F(model, "note")) notes.push(F(model, "note"));
+    if (plan && F(plan, "note")) notes.push(F(plan, "note"));
+    FORGE.fa(tool, "tips").forEach(function (t) { notes.push(t); });
+
+    var bullets = (FORGE_CONFIG.skoolBullets || []).map(function (b) {
+      return '<li>' + esc(FORGE.i18n.lang() === "ar" && b.ar ? b.ar : b.en) + '</li>';
+    }).join("");
 
     return '<section class="screen screen--wide">' +
-      '<p class="eyebrow">Done</p>' +
-      '<h1 class="q">Here it is. <em>Edit anything</em> that doesn’t sound like you.</h1>' +
+      '<p class="eyebrow">' + esc(T("doneEyebrow")) + '</p>' +
+      '<h1 class="q">' + T("resultTitle") + '</h1>' +
       '<div class="chips">' + chips.map(function (c) {
         return '<span class="chip">' + esc(c.k) + ' <b>' + esc(c.v) + '</b></span>';
       }).join("") + '</div>' +
 
-      '<div class="paper" style="margin-top:24px">' +
+      '<div class="paper">' +
       '<div class="paper__head">' +
       '<span class="paper__title"><span class="paper__dot"></span>' + esc(FORGE.compose.title(a)) + '.md</span>' +
       '<span class="paper__tools">' +
-      '<button class="btn btn--quiet" id="copyBtn" type="button">Copy</button>' +
-      '<button class="btn btn--quiet" id="dlBtn" type="button">Download</button>' +
-      '<button class="btn btn--quiet" id="revertBtn" type="button">Reset edits</button>' +
+      '<button class="btn btn--quiet" id="copyBtn" type="button">' + esc(T("copy")) + '</button>' +
+      '<button class="btn btn--quiet" id="dlBtn" type="button">' + esc(T("download")) + '</button>' +
+      '<button class="btn btn--quiet" id="revertBtn" type="button">' + esc(T("resetEdits")) + '</button>' +
       '</span></div>' +
-      '<textarea class="promptbox" id="promptBox" spellcheck="false" aria-label="Your system prompt">' +
+      '<textarea class="promptbox" id="promptBox" spellcheck="false" dir="ltr" aria-label="system prompt">' +
       esc(promptText) + '</textarea>' +
       '</div>' +
 
+      nudgeLine(a) +
+
+      '<div class="refinebar">' +
+      '<button class="btn btn--quiet" id="refineBtn" type="button">' + esc(T("refineOpen")) + '</button>' +
+      '</div>' +
+      refinePanel(a) +
+
+      (FORGE.i18n.lang() === "ar"
+        ? '<div class="langnote"><div class="langnote__t">' + esc(T("langNoteT")) + '</div>' +
+          '<p>' + esc(T("langNoteB")) + '</p></div>'
+        : '') +
+
       '<div class="howto">' +
-      '<div class="howto__t">How to use this in ' + esc(tool.label) + '</div>' +
+      '<div class="howto__t">' + esc(T("howTo", { tool: toolName })) + '</div>' +
       '<div class="steps">' +
-      tool.install.map(function (s) { return '<div class="step"><span>' + s + '</span></div>'; }).join("") +
+      FORGE.fa(tool, "install").map(function (s) { return '<div class="step"><span>' + s + '</span></div>'; }).join("") +
       '</div>' +
       (notes.length
-        ? '<div class="howto__t" style="margin-top:28px">Worth knowing</div><div class="steps steps--notes">' +
+        ? '<div class="howto__t" style="margin-top:28px">' + esc(T("worthKnowing")) + '</div>' +
+          '<div class="steps steps--notes">' +
           notes.map(function (n) { return '<div class="step"><span>' + n + '</span></div>'; }).join("") +
           '</div>'
         : '') +
@@ -191,19 +230,23 @@ FORGE.ui = (function () {
 
       '<div class="handoff">' +
       '<div class="handoff__mascot"><img src="assets/img/aibh-mascot.png" alt="" width="52" height="52"></div>' +
-      '<h2 class="handoff__t">This is the <em>easy</em> part.</h2>' +
-      '<p class="handoff__s">' + esc(FORGE_CONFIG.skoolPitch) + ' Free to join — start with the intro course, then bring the prompt you just built and we\'ll sharpen it together.</p>' +
+      '<h2 class="handoff__t">' + T("handoffT") + '</h2>' +
+      (bullets ? '<ul class="handoff__list">' + bullets + '</ul>' : '') +
       (skool
-        ? '<a class="btn btn--primary btn--lg" href="' + esc(skool) + '" target="_blank" rel="noopener">Join ' + esc(FORGE_CONFIG.skoolName) + ' — free</a>'
-        : '<button class="btn btn--primary btn--lg" type="button" disabled>Community link not set yet</button>') +
-      '<p class="handoff__note">Free introductory course included. No card, no pitch.</p>' +
+        ? '<a class="btn btn--primary btn--lg" href="' + esc(skool) + '" target="_blank" rel="noopener">' +
+          esc(T("handoffCta", { name: FORGE_CONFIG.skoolName })) + '</a>'
+        : '<button class="btn btn--primary btn--lg" type="button" disabled>' + esc(T("linkMissing")) + '</button>') +
+      '<p class="handoff__note">' + esc(T("handoffNote")) + '</p>' +
       '</div>' +
 
-      '<div style="margin-top:32px;text-align:center">' +
-      '<button class="btn btn--ghost" id="againBtn" type="button">Build another prompt for a different job</button>' +
+      '<div class="againwrap">' +
+      '<button class="btn btn--ghost" id="againBtn" type="button">' + esc(T("buildAnother")) + '</button>' +
       '</div>' +
       '</section>';
   }
 
-  return { esc: esc, intro: intro, single: single, multi: multi, fields: fields, gate: gate, result: result };
+  return {
+    esc: esc, intro: intro, single: single, fields: fields,
+    gate: gate, result: result
+  };
 })();

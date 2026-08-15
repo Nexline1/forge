@@ -1,0 +1,26 @@
+{
+  "name": "Forge — system prompt builder",
+  "short_name": "Forge",
+  "description": "Five questions. Walk away with a system prompt built for your job, your tools and your model. From the MENA AI Community.",
+  "start_url": "./",
+  "scope": "./",
+  "display": "standalone",
+  "background_color": "#ffffff",
+  "theme_color": "#101F3D",
+  "lang": "en",
+  "dir": "auto",
+  "icons": [
+    {
+      "src": "assets/img/aibh-mascot.png",
+      "sizes": "500x500",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "assets/img/aibh-mascot.png",
+      "sizes": "500x500",
+      "type": "image/png",
+      "purpose": "maskable"
+    }
+  ]
+}

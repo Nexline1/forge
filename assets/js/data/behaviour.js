@@ -132,11 +132,39 @@ FORGE.GUARDRAILS = [
   }
 ];
 
+/* Traits that genuinely contradict each other. The first one wins.
+
+   Only ONE real conflict exists in the set above, and it's worth saying why the
+   obvious candidates aren't here: `concise` + `reasoning` coexist fine because
+   the reasoning line already says "conclusion first, then the working", and
+   `nohedge` + `ask` are about different things (hedging language vs. asking a
+   clarifying question). Encoding fake conflicts would silently drop rules the
+   operator asked for. */
+FORGE.TRAIT_CONFLICTS = [
+  { keep: "formal", drop: "warm",
+    why: "A formal register and a warm one can't both be the default — kept formal." }
+];
+
 /* Injected regardless — the sections that separate a real system prompt from a
    persona blurb. */
 FORGE.UNIVERSAL = {
   uncertainty:
     "When you don't know something, say so in one sentence and say what would resolve it. Never fill a gap with something plausible. If you're partly confident, give the answer and mark the specific part you're unsure about — not a blanket disclaimer over the whole response.",
   scopeCheck:
-    "Finish the whole task, not just the easy part of it. Report completion only when it's actually done. If part of it is blocked, complete everything else and say plainly what you left out and why."
+    "Finish the whole task, not just the easy part of it. Report completion only when it's actually done. If part of it is blocked, complete everything else and say plainly what you left out and why.",
+  firstTurn:
+    "If the first thing you get is only a topic, a link or a document with no actual instruction, ask what they want done with it before you start. One question, then wait — don't guess at a deliverable."
+};
+
+/* The closing block. Instructions land hardest at the very end of a prompt, so
+   that position should carry something load-bearing rather than boilerplate.
+
+   Deliberately a PRIORITY ORDER, not a "check your work before responding"
+   line. Self-check instructions cause current models to over-verify — that's a
+   documented failure, and it inverts the usual advice. This resolves conflicts
+   the rest of the prompt can't, without asking for another pass. */
+FORGE.PRIORITIES = {
+  high: "When these pull against each other, the order is: accuracy first, then the output format, then brevity. Where you cannot verify something, say so plainly rather than smoothing over it.",
+  med:  "When these pull against each other, the order is: accuracy first, then the output format, then brevity.",
+  low:  "When these pull against each other, the order is: usefulness first, then the output format. Flag anything you're unsure about inline rather than stopping to ask."
 };
