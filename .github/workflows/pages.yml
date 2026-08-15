@@ -1,0 +1,44 @@
+# Publishes the site to GitHub Pages.
+#
+# Needed when the repo's Pages "Source" is set to **GitHub Actions** — that
+# setting enables Pages but deploys nothing on its own, so without a workflow
+# the site returns 404 forever with no obvious error. This is the official
+# static-site deploy: no build step, the repo root is uploaded as-is.
+#
+# If Source is set to "Deploy from a branch" instead, this workflow is simply
+# redundant — that mode serves the branch directly.
+
+name: Deploy to GitHub Pages
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:      # lets you re-run it by hand from the Actions tab
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+# Never let two deploys race; queue instead.
+concurrency:
+  group: pages
+  cancel-in-progress: false
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/configure-pages@v5
+
+      - uses: actions/upload-pages-artifact@v3
+        with:
+          path: .          # plain static site — the repo root IS the site
+
+      - id: deployment
+        uses: actions/deploy-pages@v4
